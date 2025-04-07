@@ -1,4 +1,5 @@
-﻿using UdonSharp;
+﻿using System.Diagnostics.Eventing.Reader;
+using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon;
@@ -10,15 +11,7 @@ public class Drone_Forcefield : UdonSharpBehaviour
     private Transform center;
     private bool isInsideBox = false;
 
-    [Tooltip("The strength of the push force applied to the drone.")]
-    public float dronePushStrength = 10f;
-    [Tooltip("The point from which the drone will be pushed away from. If unset, defaults to the origin of this object.")]
-    public Transform pushFromTransform;
-    [Tooltip("If true, the drone will be pushed away from the specified point. If false, the drone will be pushed in a consstant direction.")]
-    public bool shouldPushFromPoint = true; 
-    public Vector3 pushDirection = Vector3.forward;
-    public Quaternion pushRotation = Quaternion.LookRotation(Vector3.forward);
-
+    // Teleport Settings
     [Tooltip("If true, the drone will be teleported to the teleport location instead of being pushed.")]
     public bool shouldTeleportInsteadOfPush = false;
     public Transform teleportDestination;
@@ -27,14 +20,40 @@ public class Drone_Forcefield : UdonSharpBehaviour
     [Tooltip("If true, the drone's velocity will be reset to zero when being teleported.")]
     public bool resetVelocityOnTeleport = true;
 
-    [Tooltip("If true, the drone will not be affected if the player controlling it is inside of this object's trigger.")]
-    public bool ignoreIfPlayerInsideTrigger = false;
+    [Tooltip("If true, the drone will be teleported when it enters the trigger.")]
+    public bool teleportOnEnter = true;
+    [Tooltip("If true, the drone will be teleported when it exits the trigger.")]
+    public bool teleportOnExit = false;
+    [Tooltip("If true, the drone will be teleported while it stays inside the trigger.")]
+    public bool teleportOnStay = false;
 
-    [Tooltip("If true, the drone will not be affected no matter what. This can be set from other scripts, for example to disable the forcefield for users with certain permissions.")]
-    public bool ignorePlayer = false;
 
+    // Push Settings
+    [Tooltip("The strength of the push force applied to the drone.")]
+    public float dronePushStrength = 10f;
+    [Tooltip("If true, the drone will be pushed away from the specified point. If false, the drone will be pushed in a consstant direction.")]
+    public bool shouldPushFromPoint = true; 
+    [Tooltip("The point from which the drone will be pushed away from. If unset, defaults to the origin of this object.")]
+    public Transform pushFromTransform;
+    public Vector3 pushDirection = Vector3.forward;
+    public Quaternion pushRotation = Quaternion.LookRotation(Vector3.forward);
     [Tooltip("If true, the push direction will be relative to the object instead of the world.")]
     public bool pushDirectionInLocalSpace = false;
+    [Tooltip("If true, instead of pushing the drone it will just set its velocity to the push direction multiplied by the push strength.")]
+    public bool overrideVelocity = false;
+    [Tooltip("Push the drone when it enters the trigger.")]
+    public bool pushOnEnter = false;
+    [Tooltip("Push the drone when it exits the trigger.")]
+    public bool pushOnExit = false;
+    [Tooltip("Push the drone while it stays inside the trigger.")]
+    public bool pushOnStay = true;
+
+
+    // Other Settings
+    [Tooltip("If true, the drone will not be affected if the player controlling it is inside of this object's trigger.")]
+    public bool ignoreIfPlayerInsideTrigger = false;
+    [Tooltip("If true, the drone will not be affected no matter what. This can be set from other scripts, for example to disable the forcefield for users with certain permissions, users on certain teams, etc.")]
+    public bool ignorePlayer = false;
 
     [Tooltip("Add UdonBehaviours here where you want a custom event to be sent when a drone enters the trigger. Triggered events are: OnDroneForcefieldEnter")]
     public GameObject[] onEnterEventReceivers;
@@ -70,6 +89,10 @@ public class Drone_Forcefield : UdonSharpBehaviour
             for (int i = 0; i < onEnterEventReceivers.Length; i++)
             {
                 onEnterEventReceivers_UdonBehaviours[i] = onEnterEventReceivers[i].GetComponent<UdonBehaviour>();
+                if (onEnterEventReceivers_UdonBehaviours[i] == null)
+                {
+                    Debug.LogWarning("[DFF] Start: No UdonBehaviour found on " + onEnterEventReceivers[i].name);
+                }
             }
         }
         if (onExitEventReceivers == null || onExitEventReceivers.Length == 0)
@@ -83,6 +106,10 @@ public class Drone_Forcefield : UdonSharpBehaviour
             for (int i = 0; i < onExitEventReceivers.Length; i++)
             {
                 onExitEventReceivers_UdonBehaviours[i] = onExitEventReceivers[i].GetComponent<UdonBehaviour>();
+                if (onExitEventReceivers_UdonBehaviours[i] == null)
+                {
+                    Debug.LogWarning("[DFF] Start: No UdonBehaviour found on " + onExitEventReceivers[i].name);
+                }
             }
         }
     }
@@ -101,42 +128,8 @@ public class Drone_Forcefield : UdonSharpBehaviour
         isInsideBox = false;
     }
 
-    public override void OnDroneTriggerEnter(VRCDroneApi drone)
-    {
-        if (localDrone == null) return;
-        if (drone != localDrone) return;
-        Debug.Log("[DFF] Drone entered forcefield " + gameObject.name);
-        if (ignoreIfPlayerInsideTrigger && isInsideBox) return;
-        if (ignorePlayer) return;
-        if (onEnterEventReceivers == null) return;
-        if (onEnterEventReceivers.Length == 0) return;
-        foreach (GameObject obj in onEnterEventReceivers)
-        {
-            UdonBehaviour udonBehaviour = obj.GetComponent<UdonBehaviour>();
-            if (udonBehaviour == null) continue;
-            Debug.Log("[DFF] Sending OnDroneForcefieldEnter to " + udonBehaviour.name);
-            udonBehaviour.SendCustomEvent("OnDroneForcefieldEnter");
-        }
-    }
 
-    public override void OnDroneTriggerExit(VRCDroneApi drone)
-    {
-        if (localDrone == null) return;
-        if (drone != localDrone) return;
-        Debug.Log("[DFF] Drone exited forcefield " + gameObject.name);
-        if (ignoreIfPlayerInsideTrigger && isInsideBox) return;
-        if (ignorePlayer) return;
-        if (onExitEventReceivers == null) return;
-        if (onExitEventReceivers.Length == 0) return;
-        foreach (GameObject obj in onExitEventReceivers)
-        {
-            UdonBehaviour udonBehaviour = obj.GetComponent<UdonBehaviour>();
-            if (udonBehaviour == null) continue;
-            Debug.Log("[DFF] Sending OnDroneForcefieldExit to " + udonBehaviour.name);
-            udonBehaviour.SendCustomEvent("OnDroneForcefieldExit");
-        }
-    }
-
+    // For ClientSim
     public void Test_DroneEnter_EventSender()
     {
         if (onEnterEventReceivers == null) return;
@@ -149,31 +142,104 @@ public class Drone_Forcefield : UdonSharpBehaviour
         }
     }
 
+
+    public override void OnDroneTriggerEnter(VRCDroneApi drone)
+    {
+        if (localDrone == null) return;
+        if (drone != localDrone) return;
+        Debug.Log("[DFF] Drone entered forcefield " + gameObject.name);
+        if (ignoreIfPlayerInsideTrigger && isInsideBox) return;
+        if (ignorePlayer) return;
+
+        if (pushOnEnter && !shouldTeleportInsteadOfPush)
+        {
+            PushDrone(drone);
+        }
+        else if (teleportOnEnter && shouldTeleportInsteadOfPush)
+        {
+            TeleportDrone(drone);
+        }
+
+        if (onEnterEventReceivers == null) return;
+        if (onEnterEventReceivers.Length == 0) return;
+        foreach (GameObject obj in onEnterEventReceivers)
+        {
+            UdonBehaviour udonBehaviour = obj.GetComponent<UdonBehaviour>();
+            if (udonBehaviour == null) continue;
+            Debug.Log("[DFF] Sending OnDroneForcefieldEnter to " + udonBehaviour.name);
+            udonBehaviour.SendCustomEvent("OnDroneForcefieldEnter");
+        }
+    }
+
+
+    public override void OnDroneTriggerExit(VRCDroneApi drone)
+    {
+        if (localDrone == null) return;
+        if (drone != localDrone) return;
+        Debug.Log("[DFF] Drone exited forcefield " + gameObject.name);
+        if (ignoreIfPlayerInsideTrigger && isInsideBox) return;
+        if (ignorePlayer) return;
+
+        if (pushOnExit && !shouldTeleportInsteadOfPush)
+        {
+            PushDrone(drone);
+        }
+        else if (teleportOnExit && shouldTeleportInsteadOfPush)
+        {
+            TeleportDrone(drone);
+        }
+
+        if (onExitEventReceivers == null) return;
+        if (onExitEventReceivers.Length == 0) return;
+        foreach (GameObject obj in onExitEventReceivers)
+        {
+            UdonBehaviour udonBehaviour = obj.GetComponent<UdonBehaviour>();
+            if (udonBehaviour == null) continue;
+            Debug.Log("[DFF] Sending OnDroneForcefieldExit to " + udonBehaviour.name);
+            udonBehaviour.SendCustomEvent("OnDroneForcefieldExit");
+        }
+    }
+
+
     public override void OnDroneTriggerStay(VRCDroneApi drone)
     {
+        if (pushOnStay && !shouldTeleportInsteadOfPush)
+        {
+            PushDrone(drone);
+        } 
+        else if (teleportOnStay && shouldTeleportInsteadOfPush)
+        {
+            TeleportDrone(drone);
+        }
+    }
+
+
+    private void TeleportDrone(VRCDroneApi drone)
+    {
+        if (teleportDestination == null) return;
+        if (resetVelocityOnTeleport)
+        {
+            drone.SetVelocity(Vector3.zero);
+        }
+        Quaternion droneRotation;
+        if (keepDroneRotation && drone.TryGetRotation(out droneRotation))
+        {
+            drone.TeleportTo(teleportDestination.position, droneRotation);
+            return;
+        }
+        else if (keepDroneRotation)
+        {
+            Debug.LogWarning("[DFF] TP: Could not get drone rotation.");
+        }
+        drone.TeleportTo(teleportDestination.position, teleportDestination.rotation);
+    }
+
+
+    private void PushDrone(VRCDroneApi drone) {
         if (localDrone == null || drone != localDrone) return;
         if (isInsideBox && ignoreIfPlayerInsideTrigger) return;
         if (ignorePlayer) return;
-        if (shouldTeleportInsteadOfPush)
-        {
-            if (teleportDestination == null) return;
-            if (resetVelocityOnTeleport)
-            {
-                drone.SetVelocity(Vector3.zero);
-            }
-            Quaternion droneRotation;
-            if (keepDroneRotation && drone.TryGetRotation(out droneRotation))
-            {
-                drone.TeleportTo(teleportDestination.position, droneRotation);
-                return;
-            }
-            else if (keepDroneRotation)
-            {
-                Debug.LogWarning("[DFF] TP: Could not get drone rotation.");
-            }
-            drone.TeleportTo(teleportDestination.position, teleportDestination.rotation);
-            return;
-        }
+
         Vector3 dronePosition;
         if (drone.TryGetPosition(out dronePosition))
         {
@@ -195,12 +261,12 @@ public class Drone_Forcefield : UdonSharpBehaviour
             Vector3 droneVelocity;
             if (drone.TryGetVelocity(out droneVelocity))
             {
-                Vector3 pushStrengthDt = pushDirection * dronePushStrength * 10f * Time.fixedDeltaTime;
-                Vector3 finalPushStrength = droneVelocity + pushStrengthDt;
+                Vector3 finalPushStrength = pushDirection * dronePushStrength;
+                if (!overrideVelocity)
+                {
+                    finalPushStrength = droneVelocity + finalPushStrength * 10f * Time.fixedDeltaTime;
+                }
                 drone.SetVelocity( finalPushStrength );
-                // float diffFromDeltaTime = Time.time - lastPushTime - Time.fixedDeltaTime;
-                // Debug.Log("[DFF] Pushed drone with strength " + pushStrengthDt + ". Diff. from dT: " + diffFromDeltaTime);
-                // lastPushTime = Time.time;
             }
             else
             {
@@ -212,6 +278,7 @@ public class Drone_Forcefield : UdonSharpBehaviour
             Debug.LogWarning("[DFF] Push: Could not get drone position.");
         }
     }
+
 
 #if UNITY_EDITOR && !COMPILER_UDONSHARP
     private void OnDrawGizmosSelected() {

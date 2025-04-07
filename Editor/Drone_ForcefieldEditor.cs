@@ -67,14 +67,21 @@ public class Drone_ForcefieldEditor : Editor
         SerializedProperty teleportDestinationProp = serializedObject.FindProperty("teleportDestination");
         SerializedProperty keepDroneRotationProp = serializedObject.FindProperty("keepDroneRotation");
         SerializedProperty resetVelocityOnTeleportProp = serializedObject.FindProperty("resetVelocityOnTeleport");
+        SerializedProperty teleportOnEnterProp = serializedObject.FindProperty("teleportOnEnter");
+        SerializedProperty teleportOnExitProp = serializedObject.FindProperty("teleportOnExit");
+        SerializedProperty teleportOnStayProp = serializedObject.FindProperty("teleportOnStay");
 
         // Get SerializedProperties for push settings
         SerializedProperty dronePushStrengthProp = serializedObject.FindProperty("dronePushStrength");
         SerializedProperty shouldPushFromPointProp = serializedObject.FindProperty("shouldPushFromPoint");
         SerializedProperty pushFromTransformProp = serializedObject.FindProperty("pushFromTransform");
-        SerializedProperty pushRotationProp = serializedObject.FindProperty("pushRotation");
         SerializedProperty pushDirectionProp = serializedObject.FindProperty("pushDirection");
+        SerializedProperty pushRotationProp = serializedObject.FindProperty("pushRotation");
         SerializedProperty pushDirectionInLocalSpaceProp = serializedObject.FindProperty("pushDirectionInLocalSpace");
+        SerializedProperty overrideVelocityProp = serializedObject.FindProperty("overrideVelocity");
+        SerializedProperty pushOnEnterProp = serializedObject.FindProperty("pushOnEnter");
+        SerializedProperty pushOnExitProp = serializedObject.FindProperty("pushOnExit");
+        SerializedProperty pushOnStayProp = serializedObject.FindProperty("pushOnStay");
 
         // Get SerializedProperty for misc settings
         SerializedProperty ignoreIfPlayerInsideTriggerProp = serializedObject.FindProperty("ignoreIfPlayerInsideTrigger");
@@ -82,6 +89,7 @@ public class Drone_ForcefieldEditor : Editor
         SerializedProperty onEnterEventReceiversProp = serializedObject.FindProperty("onEnterEventReceivers");
         SerializedProperty onExitEventReceiversProp = serializedObject.FindProperty("onExitEventReceivers");
  
+
         EditorGUILayout.PropertyField(shouldTeleportInsteadOfPushProp, new GUIContent("Teleport Instead Of Push", "If true, the drone will be teleported to the teleport location instead of being pushed."));
         EditorGUILayout.Space();
 
@@ -98,6 +106,35 @@ public class Drone_ForcefieldEditor : Editor
             EditorGUILayout.PropertyField(keepDroneRotationProp, new GUIContent("Keep Drone Rotation", "If true, the drone will keep its rotation when being teleported."));
             EditorGUILayout.PropertyField(resetVelocityOnTeleportProp, new GUIContent("Reset Velocity On Teleport", "If true, the drone's velocity will be reset to zero when being teleported."));
             EditorGUILayout.Space();
+
+            // Teleport on enter/exit/stay settings
+            EditorGUILayout.LabelField("Teleport the drone upon:", EditorStyles.boldLabel);
+            EditorGUILayout.BeginHorizontal();
+            float defaultLabelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = 40;
+            
+            EditorGUI.BeginChangeCheck();
+            EditorGUI.showMixedValue = teleportOnEnterProp.hasMultipleDifferentValues;
+            bool newTeleportOnEnter = EditorGUILayout.Toggle(new GUIContent("Enter", "If true, the drone will be teleported when it enters the trigger."), teleportOnEnterProp.boolValue, GUILayout.Width(100));
+            if (EditorGUI.EndChangeCheck())
+                teleportOnEnterProp.boolValue = newTeleportOnEnter;
+            
+            EditorGUI.BeginChangeCheck();
+            EditorGUI.showMixedValue = teleportOnExitProp.hasMultipleDifferentValues;
+            bool newTeleportOnExit = EditorGUILayout.Toggle(new GUIContent("Exit", "If true, the drone will be teleported when it exits the trigger."), teleportOnExitProp.boolValue, GUILayout.Width(100));
+            if (EditorGUI.EndChangeCheck())
+                teleportOnExitProp.boolValue = newTeleportOnExit;
+            
+            EditorGUI.BeginChangeCheck();
+            EditorGUI.showMixedValue = teleportOnStayProp.hasMultipleDifferentValues;
+            bool newTeleportOnStay = EditorGUILayout.Toggle(new GUIContent("Stay", "If true, the drone will be teleported while it stays inside the trigger."), teleportOnStayProp.boolValue, GUILayout.Width(100));
+            if (EditorGUI.EndChangeCheck())
+                teleportOnStayProp.boolValue = newTeleportOnStay;
+            
+            EditorGUI.showMixedValue = false;
+            EditorGUIUtility.labelWidth = defaultLabelWidth;
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.Space(15);
         }
 
 
@@ -149,7 +186,40 @@ public class Drone_ForcefieldEditor : Editor
                 
                 EditorGUILayout.PropertyField(pushDirectionInLocalSpaceProp, new GUIContent("Push Relative to Object's Orientation", "If true, the push direction will be relative to the object instead of the world."));
             }
+            EditorGUILayout.PropertyField(overrideVelocityProp, new GUIContent("Override Drone Velocity", "If true, the drone's velocity will be overridden instead of being pushed."));
+
             EditorGUILayout.Space();
+
+            // Push on enter/exit/stay settings
+            EditorGUILayout.LabelField("Push the drone upon:", EditorStyles.boldLabel);
+            EditorGUILayout.BeginHorizontal();
+            float defaultLabelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = 40;
+            
+            EditorGUI.BeginChangeCheck();
+            EditorGUI.showMixedValue = pushOnEnterProp.hasMultipleDifferentValues;
+            bool newPushOnEnter = EditorGUILayout.Toggle(new GUIContent("Enter", "If true, the drone will be pushed when it enters the trigger."), pushOnEnterProp.boolValue, GUILayout.Width(100));
+            if (EditorGUI.EndChangeCheck())
+                pushOnEnterProp.boolValue = newPushOnEnter;
+            
+            EditorGUI.BeginChangeCheck();
+            EditorGUI.showMixedValue = pushOnExitProp.hasMultipleDifferentValues;
+            bool newPushOnExit = EditorGUILayout.Toggle(new GUIContent("Exit", "If true, the drone will be pushed when it exits the trigger."), pushOnExitProp.boolValue, GUILayout.Width(100));
+            if (EditorGUI.EndChangeCheck())
+                pushOnExitProp.boolValue = newPushOnExit;
+            
+            EditorGUI.BeginChangeCheck();
+            EditorGUI.showMixedValue = pushOnStayProp.hasMultipleDifferentValues;
+            bool newPushOnStay = EditorGUILayout.Toggle(new GUIContent("Stay", "If true, the drone will be pushed while it stays inside the trigger."), pushOnStayProp.boolValue, GUILayout.Width(100));
+            if (EditorGUI.EndChangeCheck())
+                pushOnStayProp.boolValue = newPushOnStay;
+            
+            EditorGUI.showMixedValue = false;
+            EditorGUIUtility.labelWidth = defaultLabelWidth;
+            EditorGUILayout.EndHorizontal();
+
+
+            EditorGUILayout.Space(15);
         }
 
 
@@ -157,7 +227,7 @@ public class Drone_ForcefieldEditor : Editor
         
         EditorGUILayout.PropertyField(ignoreIfPlayerInsideTriggerProp, new GUIContent("Ignore If Player is Inside Trigger", "If true, the drone will not be affected if the player controlling it is inside of this object's trigger."));
         
-        EditorGUILayout.PropertyField(ignorePlayerProp, new GUIContent("Always Ignore Local Player", "If true, the drone will not be affected no matter what. This can be set from other scripts, for example to disable the forcefield for users with certain permissions."));
+        EditorGUILayout.PropertyField(ignorePlayerProp, new GUIContent("Always Ignore Local Player", "If true, the drone will not be affected no matter what. This can be set from other scripts, for example to disable the forcefield for users with certain permissions, users on certain teams, etc."));
         
         EditorGUILayout.PropertyField(onEnterEventReceiversProp, new GUIContent("Drone Enter Event Receivers", "Add UdonBehaviours here where you want a custom event to be sent when a drone enters the trigger. Will send a custom event called OnDroneForcefieldEnter."));
        
